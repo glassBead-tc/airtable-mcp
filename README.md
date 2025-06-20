@@ -4,6 +4,8 @@ A Model Context Protocol server that provides tools for interacting with Airtabl
 
 This MCP server features a specialized implementation that allows it to build tables in stages, leveraging Claude's agentic capabilities and minimizing the failure rate typically seen in other MCP servers for Airtable when building complex tables. It also includes [system prompt](https://github.com/felores/airtable-mcp/blob/main/prompts/system-prompt.md) and [project knowledge](https://github.com/felores/airtable-mcp/blob/main/prompts/project-knowledge.md) markdown files to provide additional guidance for the LLM when leveraging projects in Claude Desktop.
 
+With the [2025-06-18 MCP specification](https://modelcontextprotocol.io/specification/2025-06-18), this server now exposes its documentation files through the `resources` capability and emits progress notifications for long running tasks. Clients can fetch `prompts/system-prompt.md` or `prompts/project-knowledge.md` via `resources/read` and track tool execution progress when supplying a `progressToken`.
+
 ## Requirements: Node.js
 
 1. Install Node.js (version 18 or higher) and npm from [nodejs.org](https://nodejs.org/)
@@ -19,25 +21,27 @@ This MCP server features a specialized implementation that allows it to build ta
 
 1. Log in to your Airtable account at [airtable.com](https://airtable.com)
 2. Create a personal access token at [Airtable's Builder Hub](https://airtable.com/create/tokens)
-3. In the Personal access token section select these scopes: 
-     - data.records:read
-     - data.records:write
-     - schema.bases:read
-     - schema.bases:write
+3. In the Personal access token section select these scopes:
+   - data.records:read
+   - data.records:write
+   - schema.bases:read
+   - schema.bases:write
 4. Select the workspace or bases you want to give access to the personal access token
 5. Keep this key secure - you'll need it for configuration
 
 ## Installation
 
 ### Method 1: Using npx (Recommended)
+
 1. Navigate to the Claude configuration directory:
 
    - Windows: `C:\Users\NAME\AppData\Roaming\Claude`
    - macOS: `~/Library/Application Support/Claude/`
-   
+
    You can also find these directories inside the Claude Desktop app: Claude Desktop > Settings > Developer > Edit Config
 
 2. Create or edit `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
@@ -51,19 +55,26 @@ This MCP server features a specialized implementation that allows it to build ta
   }
 }
 ```
+
 Note: For Windows paths, use double backslashes (\\) or forward slashes (/).
 
 ### Method 2: Using mcp-installer:
+
 mcp-installer is a MCP server to install other MCP servers.
+
 1. Install [mcp-installer](https://github.com/anaisbetts/mcp-installer)
 2. Install the Airtable MCP server by prompting Claude Desktop:
+
 ```bash
 Install @felores/airtable-mcp-server set the environment variable AIRTABLE_API_KEY to 'your_api_key'
 ```
+
 Claude will install the server, modify the configuration file and set the environment variable AIRTABLE_API_KEY to your Airtable API key.
 
 ### Method 3: Local Development Installation
+
 If you want to contribute or modify the code run this in your terminal:
+
 ```bash
 # Clone the repository
 git clone https://github.com/felores/airtable-mcp.git
@@ -78,7 +89,9 @@ npm run build
 # Run locally
 node build/index.js
 ```
+
 Then modify the Claude Desktop configuration file to use the local installation:
+
 ```json
 {
   "mcpServers": {
@@ -98,6 +111,7 @@ Then modify the Claude Desktop configuration file to use the local installation:
 1. Start Claude Desktop
 2. The Airtable MCP server should be listed in the "Connected MCP Servers" section
 3. Test with a simple command:
+
 ```
 List all bases
 ```
@@ -107,16 +121,19 @@ List all bases
 ### Available Operations
 
 #### Base Management
+
 - `list_bases`: List all accessible Airtable bases
 - `list_tables`: List all tables in a base
 - `create_table`: Create a new table with fields
 - `update_table`: Update a table's name or description
 
 #### Field Management
+
 - `create_field`: Add a new field to a table
 - `update_field`: Modify an existing field
 
 #### Record Operations
+
 - `list_records`: Retrieve records from a table
 - `create_record`: Add a new record
 - `update_record`: Modify an existing record
@@ -125,6 +142,7 @@ List all bases
 - `get_record`: Get a single record by its ID
 
 ### Field Types
+
 - `singleLineText`: Single line text field
 - `multilineText`: Multi-line text area
 - `email`: Email address field
@@ -136,7 +154,9 @@ List all bases
 - `multiSelect`: Multiple choices from options
 
 ### Field Colors
+
 Available colors for select fields:
+
 - `blueBright`, `redBright`, `greenBright`
 - `yellowBright`, `purpleBright`, `pinkBright`
 - `grayBright`, `cyanBright`, `orangeBright`
@@ -147,6 +167,7 @@ Available colors for select fields:
 We welcome contributions to improve the Airtable MCP server! Here's how you can contribute:
 
 1. Fork the Repository
+
    - Visit https://github.com/felores/airtable-mcp
    - Click the "Fork" button in the top right
    - Clone your fork locally:
@@ -155,22 +176,26 @@ We welcome contributions to improve the Airtable MCP server! Here's how you can 
      ```
 
 2. Create a Feature Branch
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 3. Make Your Changes
+
    - Follow the existing code style
    - Add tests if applicable
    - Update documentation as needed
 
 4. Commit Your Changes
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
    ```
 
 5. Push to Your Fork
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -196,6 +221,7 @@ We welcome contributions to improve the Airtable MCP server! Here's how you can 
 - Ask questions in pull requests
 
 Your contributions help make this tool better for everyone. Whether it's:
+
 - Adding new features
 - Fixing bugs
 - Improving documentation

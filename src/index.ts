@@ -5,10 +5,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   ErrorCode,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios, { AxiosInstance } from "axios";
+import fs from "node:fs/promises";
+import path from "node:path";
 import {
   FieldOption,
   fieldRequiresOptions,
@@ -40,6 +44,7 @@ class AirtableServer {
       {
         capabilities: {
           tools: {},
+          resources: {},
         },
       }
     );
@@ -59,6 +64,21 @@ class AirtableServer {
       void this.server.close().then(() => {
         process.exit(0);
       });
+    });
+  }
+
+  private async sendProgress(
+    token: string | number | undefined,
+    progress: number,
+    total = 100,
+    message?: string
+  ): Promise<void> {
+    if (token === undefined) {
+      return;
+    }
+    await this.server.notification({
+      method: "notifications/progress",
+      params: { progressToken: token, progress, total, message },
     });
   }
 
@@ -84,6 +104,45 @@ class AirtableServer {
   }
 
   private setupToolHandlers(): void {
+    // Resource handlers for MCP 2025-06-18
+    this.server.setRequestHandler(ListResourcesRequestSchema, () => {
+      return {
+        resources: [
+          {
+            uri: "file://prompts/system-prompt.md",
+            name: "System Prompt",
+            description: "System prompt for the Airtable server",
+            mimeType: "text/markdown",
+          },
+          {
+            uri: "file://prompts/project-knowledge.md",
+            name: "Project Knowledge",
+            description: "Project-specific knowledge",
+            mimeType: "text/markdown",
+          },
+        ],
+      };
+    });
+
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const { uri } = request.params;
+      if (!uri.startsWith("file://")) {
+        throw new McpError(ErrorCode.InvalidRequest, "Unsupported URI");
+      }
+      const relPath = uri.replace("file://", "");
+      const filePath = path.join(process.cwd(), relPath);
+      const data = await fs.readFile(filePath, "utf8");
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/markdown",
+            text: data,
+          },
+        ],
+      };
+    });
+
     // Register available tools
     this.server.setRequestHandler(ListToolsRequestSchema, () =>
       Promise.resolve({
@@ -442,6 +501,9 @@ class AirtableServer {
           }
 
           case "create_table": {
+            const progressToken = request.params._meta?.progressToken;
+            await this.sendProgress(progressToken, 0, 100, "Creating table");
+
             const { base_id, table_name, description, fields } = request.params.arguments as {
               base_id: string;
               table_name: string;
@@ -457,6 +519,8 @@ class AirtableServer {
               description,
               fields: validatedFields,
             });
+
+            await this.sendProgress(progressToken, 100, 100, "Table created");
 
             return {
               content: [
@@ -568,6 +632,9 @@ class AirtableServer {
           }
 
           case "create_record": {
+            const progressToken = request.params._meta?.progressToken;
+            await this.sendProgress(progressToken, 0, 100, "Creating record");
+
             const { base_id, table_name, fields } = request.params.arguments as {
               base_id: string;
               table_name: string;
@@ -576,6 +643,8 @@ class AirtableServer {
             const response = await this.axiosInstance.post(`/${base_id}/${table_name}`, {
               fields,
             });
+
+            await this.sendProgress(progressToken, 100, 100, "Record created");
             return {
               content: [
                 {
@@ -587,6 +656,9 @@ class AirtableServer {
           }
 
           case "update_record": {
+            const progressToken = request.params._meta?.progressToken;
+            await this.sendProgress(progressToken, 0, 100, "Updating record");
+
             const { base_id, table_name, record_id, fields } = request.params.arguments as {
               base_id: string;
               table_name: string;
@@ -597,6 +669,7 @@ class AirtableServer {
               `/${base_id}/${table_name}/${record_id}`,
               { fields }
             );
+            await this.sendProgress(progressToken, 100, 100, "Record updated");
             return {
               content: [
                 {
@@ -675,20 +748,17 @@ class AirtableServer {
         if (axios.isAxiosError(error)) {
           const airtableError = error.response?.data as AirtableError | undefined;
           const statusCode = error.response?.status;
-          
+
           // Handle rate limiting
           if (statusCode === 429) {
             const retryAfter = error.response?.headers["retry-after"] as string | undefined;
             throw new RateLimitError(
-              retryAfter !== undefined ? parseInt(retryAfter as string, 10) : undefined
+              retryAfter !== undefined ? parseInt(retryAfter, 10) : undefined
             );
           }
-          
+
           // Handle other API errors
-          throw new AirtableApiError(
-            airtableError?.error?.message ?? error.message,
-            statusCode
-          );
+          throw new AirtableApiError(airtableError?.error?.message ?? error.message, statusCode);
         }
         throw error;
       }
