@@ -25,7 +25,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.6.0",
+    "@modelcontextprotocol/sdk": "1.13.0",
     "axios": "^1.7.9"
   },
   "devDependencies": {
